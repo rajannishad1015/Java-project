@@ -1,0 +1,450 @@
+# Mumbai House Price Analyzer — Complete Project Documentation
+### Language: Hinglish (Hindi + English)
+### Subject: Java + Python Mini Project
+
+---
+
+## 1. Project Ka Overview (Introduction)
+
+Is project mein humne ek **Mumbai House Price Prediction** system banaya hai.  
+Iska kaam yeh hai ki user ghar ki details enter kare — jaise area, bedrooms, locality — aur system automatically **estimated price** bata de.
+
+**Technology Stack:**
+| Part | Technology |
+|------|-----------|
+| Machine Learning (AI brain) | Python 3 + scikit-learn |
+| User Interface (UI) | Java Swing + AWT |
+| Data Communication | stdin/stdout JSON bridge |
+| Dataset | Mumbai houses CSV (71,938 rows) |
+| JSON Parsing (Java mein) | json-simple library |
+
+---
+
+## 2. Folder Structure (Project ka Layout)
+
+```
+JavaProject/
+│
+├── mumbai-house-price-data-cleaned.csv   ← Original dataset (71,938 rows)
+│
+├── run.bat                                ← Ek click se compile + run karo
+│
+├── python_scripts/
+│   ├── train_mumbai_model.py              ← ML model train karta hai
+│   └── predict_server.py                  ← Java se price predict karta hai
+│
+├── models/
+│   ├── model.pkl                          ← Trained model (pickle file)
+│   └── meta.json                          ← Localities list, accuracy info
+│
+├── src/                                   ← Java source files
+│   ├── BasePanel.java                     ← Abstract parent class (OOP)
+│   ├── Predictable.java                   ← Interface (OOP)
+│   ├── MainApp.java                       ← Main window (JFrame)
+│   ├── PredictionPanel.java               ← Price predictor tab
+│   ├── DataPanel.java                     ← CSV data viewer tab
+│   └── ChartPanel.java                    ← Charts tab
+│
+├── lib/
+│   └── json-simple-1.1.1.jar             ← JSON library for Java
+│
+└── out/                                   ← Compiled .class files (auto-created)
+```
+
+---
+
+## 3. Dataset Ka Description
+
+**File:** [mumbai-house-price-data-cleaned.csv](file:///c:/Users/rajan/Downloads/JavaProject/mumbai-house-price-data-cleaned.csv)  
+**Total Rows:** 71,938 (almost 72 thousand Mumbai properties!)
+
+| Column Name | Matlab | Example |
+|-------------|--------|---------|
+| `title` | Property ka naam | "Shakti Siyara Heights" |
+| [price](file:///c:/Users/rajan/Downloads/JavaProject/python_scripts/predict_server.py#71-143) | Price in Rupees | 6169841 |
+| `area` | Area in sq ft | 601 |
+| `price_per_sqft` | Price per sq ft | 9462.97 |
+| `locality` | Area/Location | "Kalyan" |
+| `city` | City | "Mumbai" |
+| `property_type` | Type of property | "Apartment" |
+| `bedroom_num` | Bedrooms count | 2 |
+| `bathroom_num` | Bathrooms count | 2 |
+| `balcony_num` | Balconies count | 0 |
+| `furnished` | Furnishing status | "Unfurnished" |
+| `age` | Building age | 5 |
+| `total_floors` | Total floors | 1 |
+| `latitude` | GPS lat | 19.247... |
+| `longitude` | GPS long | 73.148... |
+
+---
+
+## 4. Python Code — Explanation
+
+### 4.1 [train_mumbai_model.py](file:///c:/Users/rajan/Downloads/JavaProject/python_scripts/train_mumbai_model.py) — Model Training
+
+Yeh script **ek baar run karni hoti hai** — model train karne ke liye.
+
+#### Step-by-step kya hota hai:
+
+**Step 1 — Data Load karo:**
+```python
+df = pd.read_csv(csv_file)
+```
+CSV file padh ke pandas DataFrame mein load karo.
+
+**Step 2 — Cleaning:**
+```python
+df.dropna(subset=number_cols + [target_col], inplace=True)
+```
+- Missing values wali rows hata do
+- Outlier prices hata do (bahut saste ya bahut mehnge)
+- Text columns mein missing = most common value se fill karo
+
+**Step 3 — Feature Engineering:**
+```python
+df["room_ratio"]  = df["bedroom_num"] / (df["bathroom_num"] + 1)
+df["total_rooms"] = df["bedroom_num"] + df["bathroom_num"] + df["balcony_num"]
+```
+Extra features banao jo model ko better predict karne mein help karte hain.
+
+**Step 4 — Locality Cleanup:**
+```python
+top_localities = df["locality"].value_counts().nlargest(80).index.tolist()
+df["locality"] = df["locality"].apply(lambda x: x if x in top_localities else "Other")
+```
+80 most common localities rakhte hain, baaki sab "Other" ho jaate hain.
+
+**Step 5 — X aur y banao:**
+```python
+X = df[number_cols + text_cols]   # inputs
+y = np.log1p(df[target_col])      # log of price
+```
+> `log1p` isliye use kiya kyunki prices bahut bade hote hain — log lene se model better seekhta hai.
+
+**Step 6 — Encode + Scale:**
+```python
+encoder = OneHotEncoder(...)
+X_train_cat = encoder.fit_transform(X_train[text_cols])   # text → numbers
+
+scaler = StandardScaler()
+X_train_num = scaler.fit_transform(X_train[number_cols])  # scale numbers
+```
+Text ko numbers mein convert karo (One-Hot Encoding).  
+Numbers ko same scale pe laao (StandardScaler).
+
+**Step 7 — Train:**
+```python
+model = GradientBoostingRegressor(n_estimators=250, max_depth=5, ...)
+model.fit(X_train_final, y_train)
+```
+**Gradient Boosting** algorithm use kiya — yeh ek advanced decision tree method hai jo baar baar improve karta rehta hai.
+
+**Step 8 — Accuracy Check:**
+```python
+r2  = r2_score(y_actual, y_pred)
+mae = mean_absolute_error(y_actual, y_pred)
+```
+- **R² Score** = 1.0 ke paas = perfect (hamare model ka ~0.73)
+- **MAE** = Average error in rupees (~38 Lakhs)
+
+**Step 9 — Save:**
+```python
+pickle.dump(save_data, f)   # model.pkl
+json.dump(meta, f)           # meta.json
+```
+Model + scaler + encoder pickle mein save. Meta JSON mein localities, accuracy info.
+
+---
+
+### 4.2 [predict_server.py](file:///c:/Users/rajan/Downloads/JavaProject/python_scripts/predict_server.py) — Prediction Bridge
+
+Yeh script Java aur Python ke beech **messenger** ki tarah kaam karta hai.
+
+**Kaise kaam karta hai:**
+```
+Java → JSON → predict_server.py → prediction → JSON → Java
+```
+
+1. Java ek JSON line `stdin` pe bhejta hai
+2. Python parse karta hai
+3. Scaler + Encoder se transform karta hai
+4. Model se prediction leta hai
+5. JSON response `stdout` pe deta hai
+6. Java woh padhta hai
+
+**Example:**
+```json
+Input (Java bhejta hai):
+{"area":800, "bedroom_num":2, "locality":"Andheri", "furnished":"Semi-Furnished", ...}
+
+Output (Python deta hai):
+{"status":"ok", "price":17600000, "price_lakhs":176.0, "price_str":"Rs.1.76 Cr"}
+```
+
+---
+
+## 5. Java Code — OOP Concepts ka Explanation
+
+### 5.1 OOP Kya Use Kiya?
+
+| OOP Concept | Kahan Use Kiya | Kaise |
+|-------------|---------------|-------|
+| **Abstract Class** | [BasePanel.java](file:///c:/Users/rajan/Downloads/JavaProject/src/BasePanel.java) | `abstract void loadData()` — har panel ko implement karna padega |
+| **Interface** | [Predictable.java](file:///c:/Users/rajan/Downloads/JavaProject/src/Predictable.java) | [predict()](file:///c:/Users/rajan/Downloads/JavaProject/src/PredictionPanel.java#203-317) method ka contract define karta hai |
+| **Inheritance** | [PredictionPanel](file:///c:/Users/rajan/Downloads/JavaProject/src/PredictionPanel.java#18-345), [DataPanel](file:///c:/Users/rajan/Downloads/JavaProject/src/DataPanel.java#16-230), [ChartPanel](file:///c:/Users/rajan/Downloads/JavaProject/src/ChartPanel.java#15-341) | Teeno `extends BasePanel` karte hain |
+| **Interface Implementation** | [PredictionPanel](file:///c:/Users/rajan/Downloads/JavaProject/src/PredictionPanel.java#18-345) | `implements Predictable` |
+| **Polymorphism** | [MainApp.java](file:///c:/Users/rajan/Downloads/JavaProject/src/MainApp.java) | Teeno panels ko [BasePanel](file:///c:/Users/rajan/Downloads/JavaProject/src/BasePanel.java#8-48) ki tarah treat karta hai |
+| **Encapsulation** | Har file mein | Saare fields `private` hain, methods se access hote hain |
+
+---
+
+### 5.2 [BasePanel.java](file:///c:/Users/rajan/Downloads/JavaProject/src/BasePanel.java) — Abstract Parent Class
+
+```java
+public abstract class BasePanel extends JPanel {
+    protected String panelTitle;
+
+    public abstract void loadData();   // ← ABSTRACT - subclass must implement
+
+    public void showError(String msg) { ... }   // common error popup
+    public JLabel makeLabel(String text, ...) { ... }  // common label helper
+}
+```
+
+**Kyun banaya?**  
+Taki teeno panels mein common code ek jagah ho. DRY principle (Don't Repeat Yourself).
+
+---
+
+### 5.3 [Predictable.java](file:///c:/Users/rajan/Downloads/JavaProject/src/Predictable.java) — Interface
+
+```java
+public interface Predictable {
+    void predict();   // abstract - koi bhi class jo predict karti hai implement kare
+
+    default boolean isValidNumber(String s) {   // default method
+        try { Double.parseDouble(s); return true; }
+        catch (NumberFormatException e) { return false; }
+    }
+}
+```
+
+**Kyun banaya?**  
+Interface ek "contract" hota hai. Agar [PredictionPanel](file:///c:/Users/rajan/Downloads/JavaProject/src/PredictionPanel.java#18-345) [Predictable](file:///c:/Users/rajan/Downloads/JavaProject/src/Predictable.java#5-22) implement karta hai, toh guarantee hai ki usmein [predict()](file:///c:/Users/rajan/Downloads/JavaProject/src/PredictionPanel.java#203-317) method hogi.
+
+---
+
+### 5.4 [PredictionPanel.java](file:///c:/Users/rajan/Downloads/JavaProject/src/PredictionPanel.java) — Main Prediction UI
+
+```java
+public class PredictionPanel extends BasePanel implements Predictable {
+```
+Yeh class **BasePanel bhi extend karta hai aur Predictable bhi implement karta hai** — yeh Java mein multiple inheritance ka ek tarika hai.
+
+**Important parts:**
+
+- [loadData()](file:///c:/Users/rajan/Downloads/JavaProject/src/ChartPanel.java#37-153) — `meta.json` se locality/property list load karta hai
+- [setupUI()](file:///c:/Users/rajan/Downloads/JavaProject/src/PredictionPanel.java#109-183) — JComboBox, JSpinner se form banata hai
+- [predict()](file:///c:/Users/rajan/Downloads/JavaProject/src/PredictionPanel.java#203-317) — Python script ko call karta hai via `ProcessBuilder`
+- [buildInputJson()](file:///c:/Users/rajan/Downloads/JavaProject/src/PredictionPanel.java#318-344) — user input ko JSON string mein convert karta hai
+
+**Error Handling:**
+```java
+try {
+    process = pb.start();                  // python start karo
+    writer.println(inputJson);             // input bhejo
+    result = reader.readLine();            // output padho
+    process.waitFor();                     // wait karo khatam hone tak
+} catch (IOException e) {
+    throw new Exception("Python nahi chala: " + e.getMessage());
+} catch (InterruptedException e) {
+    throw new Exception("Process rok diya gaya.");
+} finally {
+    if (process != null) process.destroy(); // cleanup karo
+}
+```
+
+---
+
+### 5.5 [DataPanel.java](file:///c:/Users/rajan/Downloads/JavaProject/src/DataPanel.java) — CSV Table Viewer
+
+- `JTable` + `DefaultTableModel` use kiya data dikhane ke liye
+- **Background loading:** `SwingWorker` se CSV background mein load hota hai taaki UI freeze na ho
+- **Search:** `KeyAdapter` se real-time filtering — user type karta hai aur table filter hoti hai
+- Column headers **black color** mein hain
+
+**Try-catch kahan:**
+```java
+try {
+    BufferedReader reader = new BufferedReader(new FileReader(csvPath));
+    ...
+    reader.close();
+} catch (FileNotFoundException e) {
+    showError("CSV file nahi mili: " + csvPath);
+} catch (IOException e) {
+    showError("File read error: " + e.getMessage());
+}
+```
+
+---
+
+### 5.6 [ChartPanel.java](file:///c:/Users/rajan/Downloads/JavaProject/src/ChartPanel.java) — Charts
+
+Do charts dikhata hai:
+1. **Bar Chart** — Har bedroom count (1 BHK, 2 BHK...) ka average price
+2. **Histogram** — Price distribution (kitne ghar kis price range mein hain)
+
+[paintComponent(Graphics g)](file:///c:/Users/rajan/Downloads/JavaProject/src/ChartPanel.java#154-196) override kiya — yeh Java ka AWT ka method hai jo khud draw karta hai jab window refresh hoti hai.
+
+```java
+@Override
+protected void paintComponent(Graphics g) {
+    super.paintComponent(g);  // parent ko call karna zaroori hai
+    Graphics2D g2 = (Graphics2D) g;
+    // ab hamare charts draw karo ...
+}
+```
+
+---
+
+### 5.7 [MainApp.java](file:///c:/Users/rajan/Downloads/JavaProject/src/MainApp.java) — Main Window
+
+- `JFrame` extend karta hai
+- `JTabbedPane` se 3 tabs banaye
+- `SwingUtilities.invokeLater()` se UI thread-safe tarike se launch hoti hai
+- **Anonymous `Runnable`** use kiya — OOP ka anonymous inner class concept
+
+```java
+SwingUtilities.invokeLater(new Runnable() {   // anonymous class
+    @Override
+    public void run() {
+        new MainApp();   // window banao
+    }
+});
+```
+
+---
+
+## 6. Java aur Python Communication — Kaise Hota Hai?
+
+```
+┌─────────────────────┐         ┌─────────────────────────┐
+│    Java App         │         │   predict_server.py     │
+│  (PredictionPanel)  │         │   (Python Process)      │
+│                     │         │                         │
+│  ProcessBuilder ────┼────────►│ python predict_server.py│
+│                     │  start  │                         │
+│  writer.println()   ├────────►│ sys.stdin (JSON padho)  │
+│  (JSON input)       │  stdin  │                         │
+│                     │         │  model.predict()        │
+│  reader.readLine()  │◄────────┤ print(json, flush=True) │
+│  (JSON output)      │  stdout │  (result bhejo)         │
+└─────────────────────┘         └─────────────────────────┘
+```
+
+**Summary:** Java ek Python process start karta hai, JSON string stdin mein deta hai, Python process karta hai aur stdout mein JSON result deta hai, Java woh padhta hai.
+
+---
+
+## 7. ML Algorithm — Gradient Boosting Kya Hai?
+
+**Simple explanation:**
+- Pehle ek chota decision tree banao (weak learner)
+- Dekhte hain kahan galti ki
+- Agli tree sirf un galtiyon ko theek karne ki koshish karta hai
+- Yeh process **250 baar** repeat hoti hai
+- Final prediction = saari trees ka combined result
+
+**Yeh Random Forest se better kyun hai?**
+- Random Forest mein trees parallel mein banate hain
+- Gradient Boosting mein ek ke baad ek (sequential) — isliye errors kam hote hain
+
+---
+
+## 8. Project Chalane Ka Tarika (How to Run)
+
+### Step 1: Model Train Karo (Pehli baar)
+```
+python python_scripts\train_mumbai_model.py
+```
+> Output: [models/model.pkl](file:///c:/Users/rajan/Downloads/JavaProject/models/model.pkl) aur [models/meta.json](file:///c:/Users/rajan/Downloads/JavaProject/models/meta.json) ban jaate hain  
+> Time: ~1-2 minutes
+
+### Step 2: Java App Launch Karo
+```
+run.bat  (double click karo)
+```
+Ya manually:
+```
+javac -encoding UTF-8 -cp "lib\json-simple-1.1.1.jar" -d "out" src\*.java
+java  -cp "out;lib\json-simple-1.1.1.jar" MainApp
+```
+
+### NetBeans/Eclipse mein:
+1. [lib/json-simple-1.1.1.jar](file:///c:/Users/rajan/Downloads/JavaProject/lib/json-simple-1.1.1.jar) ko classpath mein add karo
+2. Working Directory = `c:\Users\rajan\Downloads\JavaProject`
+3. Main Class = `MainApp`
+
+---
+
+## 9. Error Handling Summary
+
+| Error Situation | Kahan Handle | Kaise |
+|----------------|-------------|-------|
+| `model.pkl` nahi mila | `MainApp.java` | Warning dialog + option to exit |
+| `meta.json` nahi mila | `PredictionPanel.java` | `FileNotFoundException` catch → Warning popup |
+| Python nahi chala | `PredictionPanel.java` | `IOException` catch → Error message |
+| CSV nahi mili | `DataPanel.java` | `FileNotFoundException` catch → Error popup |
+| File read error | `DataPanel.java` | `IOException` catch |
+| Invalid JSON | `predict_server.py` | `json.JSONDecodeError` catch → error JSON |
+| Invalid number | `Predictable.java` | `NumberFormatException` catch in default method |
+| Model missing | `predict_server.py` | `FileNotFoundError` catch → exit(1) |
+
+---
+
+## 10. Test Results
+
+| Test Case | Input | Predicted Price |
+|-----------|-------|----------------|
+| Small flat | Andheri, 800 sqft, 2BHK, Semi-Furnished | **Rs.1.76 Cr** |
+| Big flat | Bandra, 1000 sqft, 3BHK, Furnished | **Rs.3.98 Cr** |
+
+**Model Accuracy:**
+- **R² = ~0.73** (73% variation explain hoti hai — good for real estate!)
+- **MAE = ~38 Lakhs** (average prediction error)
+
+---
+
+## 11. OOP Diagram
+
+```
+         <<interface>>
+          Predictable
+         ┌──────────┐
+         │predict() │
+         │isValid() │
+         └────┬─────┘
+              │ implements
+              │
+  BasePanel (abstract)
+  ┌────────────────────────┐
+  │ # panelTitle           │
+  │ + loadData() [abstract]│
+  │ + showError()          │
+  │ + makeLabel()          │
+  └──────────┬─────────────┘
+             │ extends (inheritance)
+    ┌────────┴──────────────────────────┐
+    │                │                  │
+PredictionPanel  DataPanel         ChartPanel
+(implements        (loadData =      (loadData =
+ Predictable)       CSV load)        CSV for charts)
+(loadData =
+  meta.json load)
+(predict =
+  Python call)
+```
+
+---
+
+*Documentation banaya for: Mumbai House Price Analyzer — Java + Python Project*
