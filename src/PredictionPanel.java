@@ -1,344 +1,211 @@
-// PredictionPanel.java
-// This panel is used for predicting Mumbai house prices
-// It extends BasePanel (OOP - inheritance) and implements Predictable (OOP - interface)
-// Made by: Student Project - Mumbai House Price Predictor
-
+import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
 import javax.swing.*;
 import javax.swing.border.*;
 import java.awt.*;
 import java.awt.event.*;
 import java.io.*;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
-import org.json.simple.JSONObject;
-import org.json.simple.parser.JSONParser;
 
-// PredictionPanel inherits from BasePanel and also implements Predictable interface
-// This shows both inheritance and interface implementation (OOP concepts)
 public class PredictionPanel extends BasePanel implements Predictable {
 
-    // --- Private variables (Encapsulation - data hiding) ---
-    private JComboBox<String> localityDropdown;
-    private JComboBox<String> propertyDropdown;
-    private JComboBox<String> furnishedDropdown;
+    private JComboBox<String> locCb, propCb, furnCb;
+    private JSpinner areaSp, bedSp, bathSp, balcSp, floorSp;
+    private JLabel resultLbl, accLbl;
+    private JButton predictBtn;
 
-    private JSpinner areaField;
-    private JSpinner bedroomField;
-    private JSpinner bathroomField;
-    private JSpinner balconyField;
-    private JSpinner floorsField;
+    private static final Color BLUE       = new Color(25, 90, 200);
+    private static final Color LIGHT_BLUE = new Color(235, 243, 255);
+    private static final Color CARD_BG    = Color.WHITE;
+    private static final Color FIELD_BG   = new Color(248, 250, 255);
 
-    private JLabel resultLabel;
-    private JLabel accuracyLabel;
-    private JButton predictButton;
-
-    // arrays to store dropdown data loaded from meta.json
-    private String[] localityList  = { "Andheri", "Bandra", "Thane", "Other" }; // default fallback
-    private String[] propertyList  = { "Apartment", "Villa", "Studio" };
-    private String[] furnishedList = { "Furnished", "Semi-Furnished", "Unfurnished" };
-
-    // path to project folder - from where python script runs
-    private String basePath = Paths.get("").toAbsolutePath().toString();
-
-    // Constructor - calls parent constructor with title (inheritance)
     public PredictionPanel() {
-        super("Price Predictor"); // calling BasePanel constructor
-
-        // first load the dropdown options from trained model meta file
-        loadData(); // this is abstract method from BasePanel, we MUST override it
-
-        // then setup the UI
-        setupUI();
+        super("Price Predictor");
+        setBackground(new Color(230, 238, 255));
+        setLayout(new BorderLayout(0, 0));
+        buildUI();
+        loadData();
     }
 
-    // MUST implement this because BasePanel declared it abstract
-    // Loads dropdown data from models/meta.json file
-    @Override
-    public void loadData() {
-        // path to meta.json file
-        String metaFile = basePath + File.separator + "models" + File.separator + "meta.json";
-
-        try {
-            // read the file content
-            String content = new String(Files.readAllBytes(Paths.get(metaFile)), StandardCharsets.UTF_8);
-
-            // parse json using json-simple library
-            JSONParser parser = new JSONParser();
-            JSONObject jsonObj = (JSONObject) parser.parse(content);
-
-            // get the lists from json
-            java.util.List<?> loc  = (java.util.List<?>) jsonObj.get("localities");
-            java.util.List<?> prop = (java.util.List<?>) jsonObj.get("property_types");
-            java.util.List<?> furn = (java.util.List<?>) jsonObj.get("furnishings");
-
-            // convert List to String array
-            localityList  = loc.stream().map(Object::toString).toArray(String[]::new);
-            propertyList  = prop.stream().map(Object::toString).toArray(String[]::new);
-            furnishedList = furn.stream().map(Object::toString).toArray(String[]::new);
-
-            // also show model accuracy from meta file
-            JSONObject metrics = (JSONObject) jsonObj.get("metrics");
-            if (metrics != null) {
-                double r2  = ((Number) metrics.get("r2")).doubleValue();
-                double mae = ((Number) metrics.get("mae_inr")).doubleValue();
-                // update label on screen once UI is built
-                SwingUtilities.invokeLater(() -> {
-                    if (accuracyLabel != null) {
-                        accuracyLabel.setText(
-                            "Model Accuracy (R2): " + String.format("%.2f", r2 * 100) + "%  |  Avg Error: Rs." +
-                            String.format("%.0f", mae / 100000) + " Lakhs"
-                        );
-                    }
-                });
-            }
-
-        } catch (FileNotFoundException e) {
-            // model not trained yet - show warning to user
-            JOptionPane.showMessageDialog(this,
-                "models/meta.json not found!\nPlease run train_mumbai_model.py first.",
-                "Model Missing", JOptionPane.WARNING_MESSAGE);
-
-        } catch (Exception e) {
-            // some other error while reading file
-            JOptionPane.showMessageDialog(this,
-                "Error loading model info: " + e.getMessage(),
-                "Load Error", JOptionPane.ERROR_MESSAGE);
-        }
-    }
-
-    // Setup all the Swing UI components
-    private void setupUI() {
-        setBackground(new Color(245, 248, 255));
-
-        // top heading label using parent class helper method
-        JLabel heading = makeLabel("Mumbai House Price Predictor", 20, true);
-        heading.setHorizontalAlignment(SwingConstants.CENTER);
-        heading.setForeground(new Color(30, 80, 160));
-        heading.setBorder(new EmptyBorder(15, 0, 10, 0));
+    private void buildUI() {
+        // ---- Top heading ----
+        JLabel heading = new JLabel("Mumbai House Price Predictor", SwingConstants.CENTER);
+        heading.setFont(new Font("Segoe UI", Font.BOLD, 22));
+        heading.setForeground(BLUE);
+        heading.setBorder(new EmptyBorder(22, 0, 16, 0));
         add(heading, BorderLayout.NORTH);
 
-        // center panel with form fields using GridBagLayout
-        JPanel formPanel = new JPanel(new GridBagLayout());
-        formPanel.setBackground(new Color(255, 255, 255));
-        formPanel.setBorder(new CompoundBorder(
-            new EmptyBorder(10, 50, 10, 50),
-            BorderFactory.createLineBorder(new Color(180, 200, 240), 1)
+        // ---- Center card ----
+        JPanel card = new JPanel(new GridBagLayout());
+        card.setBackground(CARD_BG);
+        card.setBorder(new CompoundBorder(
+            new EmptyBorder(0, 60, 0, 60),
+            new CompoundBorder(
+                new LineBorder(new Color(200, 215, 245), 1, true),
+                new EmptyBorder(20, 30, 20, 30)
+            )
         ));
 
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(7, 10, 7, 10);
-        gbc.anchor = GridBagConstraints.WEST;
-        gbc.fill   = GridBagConstraints.HORIZONTAL;
+        GridBagConstraints gc = new GridBagConstraints();
+        gc.insets = new Insets(8, 10, 8, 10);
+        gc.fill = GridBagConstraints.HORIZONTAL;
+        gc.anchor = GridBagConstraints.WEST;
 
-        // add all form rows
-        int row = 0;
-        row = addFormRow(formPanel, gbc, row, "Locality:", localityDropdown = new JComboBox<>(localityList));
-        row = addFormRow(formPanel, gbc, row, "Property Type:", propertyDropdown = new JComboBox<>(propertyList));
-        row = addFormRow(formPanel, gbc, row, "Furnished Status:", furnishedDropdown = new JComboBox<>(furnishedList));
-        row = addFormRow(formPanel, gbc, row, "Area (sq ft):",    areaField    = new JSpinner(new SpinnerNumberModel(800, 100, 50000, 50)));
-        row = addFormRow(formPanel, gbc, row, "Bedrooms:",        bedroomField  = new JSpinner(new SpinnerNumberModel(2, 1, 10, 1)));
-        row = addFormRow(formPanel, gbc, row, "Bathrooms:",       bathroomField = new JSpinner(new SpinnerNumberModel(2, 1, 10, 1)));
-        row = addFormRow(formPanel, gbc, row, "Balconies:",       balconyField  = new JSpinner(new SpinnerNumberModel(1, 0, 5, 1)));
-        row = addFormRow(formPanel, gbc, row, "Total Floors:",    floorsField   = new JSpinner(new SpinnerNumberModel(10, 1, 60, 1)));
+        locCb   = styleCombo(new JComboBox<>(new String[]{"Andheri","Bandra","Thane","Other"}));
+        propCb  = styleCombo(new JComboBox<>(new String[]{"Apartment","Villa","Studio"}));
+        furnCb  = styleCombo(new JComboBox<>(new String[]{"Furnished","Semi-Furnished","Unfurnished"}));
+        areaSp  = styleSpin(new JSpinner(new SpinnerNumberModel(800, 100, 50000, 50)));
+        bedSp   = styleSpin(new JSpinner(new SpinnerNumberModel(2, 1, 10, 1)));
+        bathSp  = styleSpin(new JSpinner(new SpinnerNumberModel(2, 1, 10, 1)));
+        balcSp  = styleSpin(new JSpinner(new SpinnerNumberModel(1, 0, 5, 1)));
+        floorSp = styleSpin(new JSpinner(new SpinnerNumberModel(10, 1, 60, 1)));
 
-        add(formPanel, BorderLayout.CENTER);
+        // Two-column layout: labels 35%, fields 65%
+        String[][] rows = {
+            {"Locality",       ""}, {"Property Type",  ""},
+            {"Furnishing",     ""}, {"Area  (sq ft)",  ""},
+            {"Bedrooms",       ""}, {"Bathrooms",      ""},
+            {"Balconies",      ""}, {"Total Floors",   ""}
+        };
+        JComponent[] fields = { locCb, propCb, furnCb, areaSp, bedSp, bathSp, balcSp, floorSp };
 
-        // bottom panel - button and result
-        JPanel bottomPanel = new JPanel(new BorderLayout(5, 8));
-        bottomPanel.setBackground(new Color(245, 248, 255));
-        bottomPanel.setBorder(new EmptyBorder(10, 50, 20, 50));
+        for (int i = 0; i < fields.length; i++) {
+            gc.gridx = 0; gc.gridy = i; gc.weightx = 0.35;
+            JLabel lbl = new JLabel(rows[i][0]);
+            lbl.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+            lbl.setForeground(new Color(55, 65, 95));
+            card.add(lbl, gc);
 
-        // accuracy label
-        accuracyLabel = makeLabel("Please train model first to see accuracy.", 11, false);
-        accuracyLabel.setForeground(Color.GRAY);
-        accuracyLabel.setHorizontalAlignment(SwingConstants.CENTER);
-        bottomPanel.add(accuracyLabel, BorderLayout.NORTH);
+            gc.gridx = 1; gc.weightx = 0.65;
+            card.add(fields[i], gc);
+        }
 
-        // predict button
-        predictButton = new JButton("Predict Price");
-        predictButton.setFont(new Font("Arial", Font.BOLD, 15));
-        predictButton.setBackground(new Color(30, 100, 220));
-        predictButton.setForeground(Color.BLACK);
-        predictButton.setFocusPainted(false);
-        predictButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        add(card, BorderLayout.CENTER);
 
-        // button click calls predict() method from Predictable interface
-        predictButton.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                predict(); // implements Predictable interface method
-            }
-        });
-        bottomPanel.add(predictButton, BorderLayout.CENTER);
+        // ---- Bottom panel ----
+        JPanel bot = new JPanel();
+        bot.setLayout(new BoxLayout(bot, BoxLayout.Y_AXIS));
+        bot.setBackground(new Color(230, 238, 255));
+        bot.setBorder(new EmptyBorder(16, 60, 24, 60));
 
-        // result label at bottom
-        resultLabel = makeLabel("Enter details above and click Predict.", 18, true);
-        resultLabel.setHorizontalAlignment(SwingConstants.CENTER);
-        resultLabel.setForeground(new Color(20, 140, 80));
-        resultLabel.setBorder(new EmptyBorder(12, 0, 0, 0));
-        bottomPanel.add(resultLabel, BorderLayout.SOUTH);
+        accLbl = new JLabel("Accuracy: loading...", SwingConstants.CENTER);
+        accLbl.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        accLbl.setForeground(new Color(100, 120, 160));
+        accLbl.setAlignmentX(Component.CENTER_ALIGNMENT);
+        bot.add(accLbl);
+        bot.add(Box.createVerticalStrut(12));
 
-        add(bottomPanel, BorderLayout.SOUTH);
+        predictBtn = buildPredictButton();
+        predictBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
+        bot.add(predictBtn);
+        bot.add(Box.createVerticalStrut(14));
+
+        resultLbl = new JLabel("Enter details and click Predict", SwingConstants.CENTER);
+        resultLbl.setFont(new Font("Segoe UI", Font.BOLD, 20));
+        resultLbl.setForeground(new Color(20, 148, 80));
+        resultLbl.setAlignmentX(Component.CENTER_ALIGNMENT);
+        bot.add(resultLbl);
+
+        add(bot, BorderLayout.SOUTH);
     }
 
-    // helper method to add one row (label + component) to form
-    private int addFormRow(JPanel panel, GridBagConstraints gbc, int row, String labelText, JComponent comp) {
-        // label column
-        gbc.gridx = 0;
-        gbc.gridy = row;
-        gbc.weightx = 0.3;
-        JLabel lbl = makeLabel(labelText, 13, false);
-        lbl.setForeground(new Color(60, 60, 90));
-        panel.add(lbl, gbc);
-
-        // component column
-        gbc.gridx = 1;
-        gbc.weightx = 0.7;
-        comp.setFont(new Font("Arial", Font.PLAIN, 13));
-        panel.add(comp, gbc);
-
-        return row + 1; // go to next row
-    }
-
-    // ---- Implementation of Predictable interface method ----
-    // This method runs the Python script and gets the predicted price
-    @Override
-    public void predict() {
-        // disable button so user doesn't click again while loading
-        predictButton.setEnabled(false);
-        resultLabel.setText("Calculating... please wait.");
-        resultLabel.setForeground(new Color(200, 130, 20));
-
-        // SwingWorker runs prediction in background thread
-        // (otherwise the UI would freeze)
-        SwingWorker<String, Void> bgTask = new SwingWorker<String, Void>() {
-
-            @Override
-            protected String doInBackground() throws Exception {
-                // build the json input string manually
-                String inputJson = buildInputJson();
-
-                // path to python predict script
-                String scriptPath = basePath + File.separator + "python_scripts"
-                    + File.separator + "predict_server.py";
-
-                // use ProcessBuilder to run python script
-                ProcessBuilder pb = new ProcessBuilder("python", scriptPath);
-                pb.directory(new File(basePath));
-                pb.redirectErrorStream(false); // keep stderr separate
-
-                Process process = null;
-                String result = "";
-
-                try {
-                    process = pb.start();
-
-                    // write input json to python's stdin
-                    PrintWriter writer = new PrintWriter(
-                        new OutputStreamWriter(process.getOutputStream(), StandardCharsets.UTF_8)
-                    );
-                    writer.println(inputJson);
-                    writer.flush();
-                    writer.close();
-
-                    // read output from python's stdout
-                    BufferedReader reader = new BufferedReader(
-                        new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8)
-                    );
-                    String line;
-                    while ((line = reader.readLine()) != null) {
-                        result = line; // keep last line (the json output)
-                    }
-                    reader.close();
-
-                    // wait for process to finish
-                    process.waitFor();
-
-                } catch (IOException e) {
-                    // if python not found or script not found
-                    throw new Exception("Could not run Python: " + e.getMessage());
-                } catch (InterruptedException e) {
-                    throw new Exception("Process was interrupted.");
-                } finally {
-                    // always destroy process if something went wrong
-                    if (process != null) {
-                        process.destroy();
-                    }
-                }
-
-                if (result.isEmpty()) {
-                    throw new Exception("No output received from Python script.");
-                }
-
-                return result;
-            }
-
-            @Override
-            protected void done() {
-                predictButton.setEnabled(true); // re-enable button
-
-                try {
-                    String jsonOutput = get(); // get result from doInBackground
-
-                    // parse json response from python
-                    JSONParser parser = new JSONParser();
-                    JSONObject response = (JSONObject) parser.parse(jsonOutput);
-
-                    String status = response.get("status").toString();
-
-                    if (status.equals("ok")) {
-                        // success - show predicted price
-                        String priceStr = response.get("price_str").toString();
-                        double lakhs    = ((Number) response.get("price_lakhs")).doubleValue();
-
-                        resultLabel.setText("Predicted Price: " + priceStr);
-                        resultLabel.setForeground(new Color(20, 140, 80));
-
-                    } else {
-                        // python returned an error
-                        String msg = response.get("message").toString();
-                        resultLabel.setText("Prediction Error!");
-                        resultLabel.setForeground(Color.RED);
-                        showError("Python Error:\n" + msg); // using BasePanel's method
-
-                    }
-
-                } catch (Exception e) {
-                    // if something breaks while reading result
-                    resultLabel.setText("Something went wrong.");
-                    resultLabel.setForeground(Color.RED);
-                    showError("Error: " + e.getMessage());
-                }
+    private JButton buildPredictButton() {
+        JButton btn = new JButton("  Predict Price  ") {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(getModel().isRollover() ? new Color(10, 70, 180) : BLUE);
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 14, 14);
+                g2.dispose();
+                super.paintComponent(g);
             }
         };
-
-        bgTask.execute(); // start background thread
+        btn.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        btn.setForeground(Color.WHITE);
+        btn.setContentAreaFilled(false);
+        btn.setBorderPainted(false);
+        btn.setFocusPainted(false);
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btn.setMaximumSize(new Dimension(260, 48));
+        btn.setPreferredSize(new Dimension(260, 48));
+        btn.addActionListener(e -> predict());
+        return btn;
     }
 
-    // builds the json string to send to python
-    // used isValidNumber() from Predictable interface
-    private String buildInputJson() {
-        double area     = ((Number) areaField.getValue()).doubleValue();
-        double bedrooms = ((Number) bedroomField.getValue()).doubleValue();
-        double bathrooms= ((Number) bathroomField.getValue()).doubleValue();
-        double balconies= ((Number) balconyField.getValue()).doubleValue();
-        double floors   = ((Number) floorsField.getValue()).doubleValue();
+    private JComboBox<String> styleCombo(JComboBox<String> cb) {
+        cb.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        cb.setBackground(FIELD_BG);
+        cb.setBorder(new LineBorder(new Color(200, 215, 245), 1));
+        return cb;
+    }
 
-        String locality     = localityDropdown.getSelectedItem().toString();
-        String propertyType = propertyDropdown.getSelectedItem().toString();
-        String furnished    = furnishedDropdown.getSelectedItem().toString();
+    private JSpinner styleSpin(JSpinner sp) {
+        sp.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        ((JSpinner.DefaultEditor) sp.getEditor()).getTextField().setBackground(FIELD_BG);
+        return sp;
+    }
 
-        // create json manually (simple approach)
-        JSONObject obj = new JSONObject();
-        obj.put("area",          area);
-        obj.put("bedroom_num",   bedrooms);
-        obj.put("bathroom_num",  bathrooms);
-        obj.put("balcony_num",   balconies);
-        obj.put("total_floors",  floors);
-        obj.put("locality",      locality);
-        obj.put("property_type", propertyType);
-        obj.put("furnished",     furnished);
+    @Override public void loadData() {
+        try {
+            String json = Files.readString(Paths.get("models/meta.json"));
+            JSONObject obj = (JSONObject) new JSONParser().parse(json);
+            updateCb(locCb,   (Iterable<?>) obj.get("localities"));
+            updateCb(propCb,  (Iterable<?>) obj.get("property_types"));
+            updateCb(furnCb,  (Iterable<?>) obj.get("furnishings"));
+            JSONObject m = (JSONObject) obj.get("metrics");
+            if (m != null) accLbl.setText(String.format(
+                "Accuracy: %.1f%%  |  Avg Error: ₹%.1f Lakhs",
+                ((Number)m.get("r2")).doubleValue() * 100,
+                ((Number)m.get("mae_inr")).doubleValue() / 1e5));
+        } catch (Exception ex) { System.err.println("Meta: " + ex.getMessage()); }
+    }
 
-        return obj.toJSONString();
+    private void updateCb(JComboBox<String> cb, Iterable<?> items) {
+        if (items == null || cb == null) return;
+        cb.removeAllItems();
+        items.forEach(i -> cb.addItem(i.toString()));
+    }
+
+    @Override @SuppressWarnings("unchecked")
+    public void predict() {
+        predictBtn.setEnabled(false);
+        resultLbl.setForeground(new Color(200, 130, 20));
+        resultLbl.setText("Calculating... please wait");
+
+        JSONObject req = new JSONObject();
+        req.put("area",          areaSp.getValue());
+        req.put("bedroom_num",   bedSp.getValue());
+        req.put("bathroom_num",  bathSp.getValue());
+        req.put("balcony_num",   balcSp.getValue());
+        req.put("total_floors",  floorSp.getValue());
+        req.put("locality",      locCb.getSelectedItem());
+        req.put("property_type", propCb.getSelectedItem());
+        req.put("furnished",     furnCb.getSelectedItem());
+
+        new SwingWorker<String, Void>() {
+            @Override protected String doInBackground() throws Exception {
+                Process p = new ProcessBuilder("python", "python_scripts/predict_server.py").start();
+                try (PrintWriter w = new PrintWriter(p.getOutputStream())) { w.println(req.toJSONString()); }
+                try (BufferedReader r = new BufferedReader(new InputStreamReader(p.getInputStream()))) {
+                    return r.lines().reduce((a,b)->b).orElse("{}");
+                }
+            }
+            @Override protected void done() {
+                predictBtn.setEnabled(true);
+                try {
+                    JSONObject res = (JSONObject) new JSONParser().parse(get());
+                    if ("ok".equals(res.get("status"))) {
+                        resultLbl.setForeground(new Color(20, 148, 80));
+                        resultLbl.setText("Predicted Price:  " + res.get("price_str"));
+                    } else {
+                        resultLbl.setForeground(Color.RED);
+                        resultLbl.setText("Error: " + res.get("message"));
+                    }
+                } catch (Exception e) {
+                    resultLbl.setForeground(Color.RED);
+                    resultLbl.setText("Failed: " + e.getMessage());
+                }
+            }
+        }.execute();
     }
 }
