@@ -1,0 +1,10 @@
+# Python caches
+__pycache__/
+*.pyc
+
+# Data and Models
+mumbai-house-price-data-cleaned.csv
+models/
+
+# Java Build Output
+out/

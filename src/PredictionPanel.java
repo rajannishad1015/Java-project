@@ -14,82 +14,63 @@ public class PredictionPanel extends BasePanel implements Predictable {
     private JLabel resultLbl, accLbl;
     private JButton predictBtn;
 
-    private static final Color BLUE       = new Color(25, 90, 200);
-    private static final Color LIGHT_BLUE = new Color(235, 243, 255);
-    private static final Color CARD_BG    = Color.WHITE;
-    private static final Color FIELD_BG   = new Color(248, 250, 255);
 
     public PredictionPanel() {
         super("Price Predictor");
-        setBackground(new Color(230, 238, 255));
-        setLayout(new BorderLayout(0, 0));
         buildUI();
         loadData();
     }
 
     private void buildUI() {
-        // ---- Top heading ----
-        JLabel heading = new JLabel("Mumbai House Price Predictor", SwingConstants.CENTER);
-        heading.setFont(new Font("Segoe UI", Font.BOLD, 22));
-        heading.setForeground(BLUE);
-        heading.setBorder(new EmptyBorder(22, 0, 16, 0));
-        add(heading, BorderLayout.NORTH);
+        add(createTitle("Mumbai House Price Predictor"), BorderLayout.NORTH);
 
-        // ---- Center card ----
-        JPanel card = new JPanel(new GridBagLayout());
-        card.setBackground(CARD_BG);
-        card.setBorder(new CompoundBorder(
-            new EmptyBorder(0, 60, 0, 60),
-            new CompoundBorder(
-                new LineBorder(new Color(200, 215, 245), 1, true),
-                new EmptyBorder(20, 30, 20, 30)
-            )
-        ));
-
+        JPanel card = createCard();
         GridBagConstraints gc = new GridBagConstraints();
         gc.insets = new Insets(8, 10, 8, 10);
         gc.fill = GridBagConstraints.HORIZONTAL;
         gc.anchor = GridBagConstraints.WEST;
 
-        locCb   = styleCombo(new JComboBox<>(new String[]{"Andheri","Bandra","Thane","Other"}));
-        propCb  = styleCombo(new JComboBox<>(new String[]{"Apartment","Villa","Studio"}));
-        furnCb  = styleCombo(new JComboBox<>(new String[]{"Furnished","Semi-Furnished","Unfurnished"}));
-        areaSp  = styleSpin(new JSpinner(new SpinnerNumberModel(800, 100, 50000, 50)));
-        bedSp   = styleSpin(new JSpinner(new SpinnerNumberModel(2, 1, 10, 1)));
-        bathSp  = styleSpin(new JSpinner(new SpinnerNumberModel(2, 1, 10, 1)));
-        balcSp  = styleSpin(new JSpinner(new SpinnerNumberModel(1, 0, 5, 1)));
-        floorSp = styleSpin(new JSpinner(new SpinnerNumberModel(10, 1, 60, 1)));
+        // Initialize fields
+        locCb   = new JComboBox<>(new String[]{"Andheri","Bandra","Thane","Other"});
+        propCb  = new JComboBox<>(new String[]{"Apartment","Villa","Studio"});
+        furnCb  = new JComboBox<>(new String[]{"Furnished","Semi-Furnished","Unfurnished"});
+        areaSp  = new JSpinner(new SpinnerNumberModel(800, 100, 50000, 50));
+        bedSp   = new JSpinner(new SpinnerNumberModel(2, 1, 10, 1));
+        bathSp  = new JSpinner(new SpinnerNumberModel(2, 1, 10, 1));
+        balcSp  = new JSpinner(new SpinnerNumberModel(1, 0, 5, 1));
+        floorSp = new JSpinner(new SpinnerNumberModel(10, 1, 60, 1));
 
-        // Two-column layout: labels 35%, fields 65%
-        String[][] rows = {
-            {"Locality",       ""}, {"Property Type",  ""},
-            {"Furnishing",     ""}, {"Area  (sq ft)",  ""},
-            {"Bedrooms",       ""}, {"Bathrooms",      ""},
-            {"Balconies",      ""}, {"Total Floors",   ""}
-        };
-        JComponent[] fields = { locCb, propCb, furnCb, areaSp, bedSp, bathSp, balcSp, floorSp };
+        String[] labels = {"Locality", "Property Type", "Furnishing", "Area (sq ft)", "Bedrooms", "Bathrooms", "Balconies", "Total Floors"};
+        JComponent[] fields = {locCb, propCb, furnCb, areaSp, bedSp, bathSp, balcSp, floorSp};
 
         for (int i = 0; i < fields.length; i++) {
-            gc.gridx = 0; gc.gridy = i; gc.weightx = 0.35;
-            JLabel lbl = new JLabel(rows[i][0]);
-            lbl.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-            lbl.setForeground(new Color(55, 65, 95));
+            styleField(fields[i]);
+            gc.gridy = i;
+            
+            gc.gridx = 0; gc.weightx = 0.35;
+            JLabel lbl = new JLabel(labels[i]);
+            lbl.setFont(FONT_TEXT);
+            lbl.setForeground(TEXT_DARK);
             card.add(lbl, gc);
 
             gc.gridx = 1; gc.weightx = 0.65;
             card.add(fields[i], gc);
         }
 
-        add(card, BorderLayout.CENTER);
+        JPanel centerWrapper = new JPanel(new BorderLayout());
+        centerWrapper.setOpaque(false);
+        centerWrapper.setBorder(new EmptyBorder(0, 80, 0, 80));
+        centerWrapper.add(card);
+        add(centerWrapper, BorderLayout.CENTER);
 
         // ---- Bottom panel ----
         JPanel bot = new JPanel();
         bot.setLayout(new BoxLayout(bot, BoxLayout.Y_AXIS));
-        bot.setBackground(new Color(230, 238, 255));
+        bot.setOpaque(false);
         bot.setBorder(new EmptyBorder(16, 60, 24, 60));
 
         accLbl = new JLabel("Accuracy: loading...", SwingConstants.CENTER);
-        accLbl.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        accLbl.setFont(FONT_SMALL);
         accLbl.setForeground(new Color(100, 120, 160));
         accLbl.setAlignmentX(Component.CENTER_ALIGNMENT);
         bot.add(accLbl);
@@ -101,7 +82,7 @@ public class PredictionPanel extends BasePanel implements Predictable {
         bot.add(Box.createVerticalStrut(14));
 
         resultLbl = new JLabel("Enter details and click Predict", SwingConstants.CENTER);
-        resultLbl.setFont(new Font("Segoe UI", Font.BOLD, 20));
+        resultLbl.setFont(FONT_BOLD.deriveFont(20f));
         resultLbl.setForeground(new Color(20, 148, 80));
         resultLbl.setAlignmentX(Component.CENTER_ALIGNMENT);
         bot.add(resultLbl);
@@ -114,7 +95,7 @@ public class PredictionPanel extends BasePanel implements Predictable {
             @Override protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(getModel().isRollover() ? new Color(10, 70, 180) : BLUE);
+                g2.setColor(getModel().isRollover() ? new Color(10, 70, 180) : THEME_BLUE);
                 g2.fillRoundRect(0, 0, getWidth(), getHeight(), 14, 14);
                 g2.dispose();
                 super.paintComponent(g);
@@ -132,18 +113,6 @@ public class PredictionPanel extends BasePanel implements Predictable {
         return btn;
     }
 
-    private JComboBox<String> styleCombo(JComboBox<String> cb) {
-        cb.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        cb.setBackground(FIELD_BG);
-        cb.setBorder(new LineBorder(new Color(200, 215, 245), 1));
-        return cb;
-    }
-
-    private JSpinner styleSpin(JSpinner sp) {
-        sp.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        ((JSpinner.DefaultEditor) sp.getEditor()).getTextField().setBackground(FIELD_BG);
-        return sp;
-    }
 
     @Override public void loadData() {
         try {
@@ -156,7 +125,7 @@ public class PredictionPanel extends BasePanel implements Predictable {
             if (m != null) accLbl.setText(String.format(
                 "Accuracy: %.1f%%  |  Avg Error: ₹%.1f Lakhs",
                 ((Number)m.get("r2")).doubleValue() * 100,
-                ((Number)m.get("mae_inr")).doubleValue() / 1e5));
+                ((Number)m.get("mae")).doubleValue() / 1e5));
         } catch (Exception ex) { System.err.println("Meta: " + ex.getMessage()); }
     }
 

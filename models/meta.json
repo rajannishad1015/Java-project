@@ -1,18 +1,4 @@
 {
-  "features_num": [
-    "area",
-    "bedroom_num",
-    "bathroom_num",
-    "balcony_num",
-    "total_floors",
-    "room_ratio",
-    "total_rooms"
-  ],
-  "features_cat": [
-    "locality",
-    "property_type",
-    "furnished"
-  ],
   "localities": [
     "Airoli",
     "Ambernath",
@@ -67,6 +53,7 @@
     "Nalasopara",
     "Neral",
     "Nerul",
+    "Other",
     "Palghar",
     "Panvel",
     "Parel",
@@ -93,8 +80,7 @@
     "Ville Parle",
     "Virar",
     "Wadala",
-    "Worli",
-    "Other"
+    "Worli"
   ],
   "property_types": [
     "Apartment",
@@ -109,10 +95,21 @@
     "Unfurnished"
   ],
   "metrics": {
-    "r2": 0.8848,
-    "mae_inr": 3114964,
-    "med_ape_pct": 12.45,
-    "train_rows": 60242,
-    "test_rows": 10631
-  }
+    "r2": 0.8963,
+    "mae": 2799674
+  },
+  "num_cols": [
+    "area",
+    "bedroom_num",
+    "bathroom_num",
+    "balcony_num",
+    "total_floors",
+    "room_ratio",
+    "total_rooms"
+  ],
+  "cat_cols": [
+    "locality",
+    "property_type",
+    "furnished"
+  ]
 }
